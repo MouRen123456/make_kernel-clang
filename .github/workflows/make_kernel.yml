@@ -7,28 +7,37 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel Source'
         required: true
-        default: 'https://github.com/libxzr/android_kernel_oneplus_sm8250'
+        default: 'https://github.com/HELLBOY017/kernel_oneplus_sm8250'
         
       KERNEL_SOURCE_BRANCH:
         description: 'Branch'
         required: true
-        default: 'oos11/final'
+        default: 'V12'
         
       KERNEL_DEFCONFIG:
         description: 'Defconfig'
         required: true
         default: 'vendor/kona-perf_defconfig'
 
-      CLANG_URL:
-        description: 'Clang URL'
+      CLANG_v:
+        description: 'Clang version  14  16  17'
         required: true
-        default: 'https://github.com/ZyCromerZ/Clang/releases/download/14.0.6-20230213-release/Clang-14.0.6-20230213.tar.gz'      
-        
+        default: '17'      
+
+      shell:
+        description: 'shell'
+        required: false
+        default: 'git submodule init ; git submodule update ; #  curl -SL http://raw.github.com/zhlhlf/text/main/ssh.sh | sudo bash'      
+      
+      zip_name:
+        description: 'zip name'
+        required: true
+        default: 'kernel-oos' 
+      
       ksu_path_or_KPROBES:
-        description: 'ksu--  true is path || false is KPROBES'
+        description: '[0，1，2，3,  4]->[path-su,kprobes-su,only-path-su,only-kprobes-su,no-su]'
         required: true
-        default: 'false'
-        type: boolean
+        default: '1'
 
 jobs:
   build:
@@ -47,13 +56,15 @@ jobs:
     - name: 下载clang和内核源
       run: |
         mkdir clang
-        aria2c -j10 ${{ github.event.inputs.CLANG_URL }} -o clang.tar.gz
+        curl "https://github.com/ZyCromerZ/Clang/releases?q=${{ github.event.inputs.CLANG_v }}&expanded=true" | grep 'https://github.com/ZyCromerZ/Clang/releases/expanded_assets/' | sed -n 1p | awk -F'"' '{print $6}' > clang_url.txt 
+        curl $(cat clang_url.txt) | grep ".tar.gz" | awk -F'"' '{print $2}' | sed -n 1p > url.txt && echo "https://github.com$(sed -n 1p url.txt)" > url.txt
+        aria2c -j10 $(sed -n 1p url.txt) -o clang.tar.gz
         tar -C clang/ -zxf clang.tar.gz
+        rm -rf clang_url.txt url.txt
         git clone --depth=1 ${{ github.event.inputs.KERNEL_SOURCE }} -b ${{ github.event.inputs.KERNEL_SOURCE_BRANCH }} android-kernel
         cd android-kernel
-        git submodule init
-        git submodule update
-    
+        ${{ github.event.inputs.shell }}
+       
     - name: 编译内核
       run: |
         cd android-kernel
@@ -63,37 +74,42 @@ jobs:
         export ARCH=arm64
         export SUBARCH=arm64
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 )"
-        export KBUILD_BUILD_HOST=zhlhlf_linux
-        export KBUILD_BUILD_USER=zhlhlf
-
+        export KBUILD_BUILD_HOST=zhlhlf-linux
+        export KBUILD_BUILD_USER=zhlhlf  
+        
+        cat > AnyKernel3.sh <<end
+        rm -rf AnyKernel3
+        git clone --depth=1 https://github.com/zhlhlf/AnyKernel3 AnyKernel3
+        rm -rf AnyKernel3/.git
+        mv out/arch/arm64/boot/dtbo.img AnyKernel3/ || mv out/arch/arm64/boot/dtbo AnyKernel3/ || echo "没有dtbo*"
+        mv out/arch/arm64/boot/Image AnyKernel3/ || mv out/arch/arm64/boot/Image.gz AnyKernel3/ || exit 0
+        mv kernel.log AnyKernel3/
+        cd AnyKernel3
+        zip -r \$1-\$2-$(TZ=Asia/Shanghai date "+%Y%m%d%H%M").zip *
+        mkdir ../../666 || echo ""
+        cp -r \$1-\$2-$(TZ=Asia/Shanghai date "+%Y%m%d%H%M").zip ../../666
+        end
+        
+        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "0" ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "1" ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "4" ];then
         make O=out -j$(nproc --all) CC="ccache clang" CXX="ccache clang++" ARCH=arm64 CROSS_COMPILE=$CLANG_PATH/bin/aarch64-linux-gnu- CROSS_COMPILE_ARM32=$CLANG_PATH/bin/arm-linux-gnueabi- LD=ld.lld ${{ github.event.inputs.KERNEL_DEFCONFIG }}
         echo "----------------------------"
         sed s/CONFIG_LOCALVERSION=".*"/'CONFIG_LOCALVERSION="-perf-ksu-zhlhlf"'/g out/.config >>.config1
         rm -rf out/.config
         mv .config1 out/.config
         make O=out -j$(nproc --all) CC="ccache clang" CXX="ccache clang++" ARCH=arm64 CROSS_COMPILE=$CLANG_PATH/bin/aarch64-linux-gnu- CROSS_COMPILE_ARM32=$CLANG_PATH/bin/arm-linux-gnueabi- LD=ld.lld || exit 2>&1 | tee kernel.log
+        sh AnyKernel3.sh ${{ github.event.inputs.zip_name }}
+        fi
 
-        cat > AnyKernel3.sh <<end
-        rm -rf AnyKernel3
-        git clone --depth=1 https://github.com/zhlhlf/AnyKernel3 AnyKernel3
-        rm -rf AnyKernel3/.git
-        mv out/arch/arm64/boot/dtbo.img AnyKernel3/ || echo "没有dtbo.img"
-        mv out/arch/arm64/boot/Image AnyKernel3/
-        mv kernel.log AnyKernel3/
-        cd AnyKernel3
-        zip -r kernel-\$1-$(TZ=Asia/Shanghai date "+%Y%m%d%H%M").zip *
-        mkdir ../../666 || echo ""
-        cp -r kernel-\$1-$(TZ=Asia/Shanghai date "+%Y%m%d%H%M").zip ../../666
-        end
-        sh AnyKernel3.sh 
-        
+        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "0" ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "1" ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "2" ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} == "3" ];then
         echo -e "\n\n\n\n"
         echo "--------------加入ksu编译-----------------"
+        rm -rf KernelSU
         make O=out CC="ccache clang" CXX="ccache clang++" ARCH=arm64 CROSS_COMPILE=$CLANG_PATH/bin/aarch64-linux-gnu- CROSS_COMPILE_ARM32=$CLANG_PATH/bin/arm-linux-gnueabi- LD=ld.lld ${{ github.event.inputs.KERNEL_DEFCONFIG }}
         echo "----------------------------"
-        sed s/CONFIG_LOCALVERSION=".*"/'CONFIG_LOCALVERSION="-perf-ksu-zhlhlf"'/g out/.config >>.config1
+        gg="$(cat out/.config | sed -n 's/.*CONFIG_LOCALVERSION="\([^"]*\).*/\1/p')_ksu"
+        sed s/CONFIG_LOCALVERSION=".*"/CONFIG_LOCALVERSION=\"$gg\"/g out/.config >>.config1
         rm -rf out/.config
-        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
 
         hh="
         CONFIG_KPROBES=y
@@ -105,8 +121,8 @@ jobs:
         CONFIG_DM_VERITY=y
         CONFIG_DM_VERITY_AVB=y
         "
-        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = true ];then git apply ../KernelSU.patch ; echo "path----------" ; fi 
-        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = false ];then for i in $hh; do echo $i >> .config1; done; echo "kprobes----------" ; fi 
+        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = '0' ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = '2' ];then bash ../patches.sh ; echo "path----------" ; fi 
+        if [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = '1' ] || [ ${{ github.event.inputs.ksu_path_or_KPROBES }} = '3' ];then for i in $hh; do echo $i >> .config1; done; echo "kprobes----------" ; fi 
         mv .config1 out/.config
         echo "----------------------------"
         cat out/.config | grep KPROBES
@@ -114,7 +130,8 @@ jobs:
         echo "----------------------------"
         make O=out -j$(nproc --all) CC="ccache clang" CXX="ccache clang++" ARCH=arm64 CROSS_COMPILE=$CLANG_PATH/bin/aarch64-linux-gnu- CROSS_COMPILE_ARM32=$CLANG_PATH/bin/arm-linux-gnueabi- LD=ld.lld 2>&1 | tee kernel.log               
         echo "----------------------"
-        sh AnyKernel3.sh "KernelSU"
+        sh AnyKernel3.sh  ${{ github.event.inputs.zip_name }} "ksu"
+        fi
 
     - name: 上传到onedrive
       run: |
