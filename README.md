@@ -1,20 +1,20 @@
 # make_kernel-clang
 ```
-https://github.com/OnePlusOSS/android_kernel_oneplus_sm8250
+https://github.com/saoshen/android_kernel_xiaomi_mt6885
 ```
 ```
-https://github.com/HELLBOY017/kernel_oneplus_sm8250
+
 ```
 ```
-https://github.com/crdroidandroid/android_kernel_oneplus_sm8250
+
 ```
 ```
-https://github.com/ArrowOS-Devices/android_kernel_oneplus_sm8250
+
 ```
 ```
-https://github.com/Nameless-AOSP-OSS/kernel_oneplus_sm8250
+
 ```
 ```
-https://github.com/ZyCromerZ/Clang/releases
+https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android11-release/clang-r383902.tar.gz
 ```
 ```
