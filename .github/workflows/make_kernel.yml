@@ -7,17 +7,17 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel Source'
         required: true
-        default: 'https://github.com/HELLBOY017/kernel_oneplus_sm8250'
+        default: 'https://github.com/XayahSuSuSu/kernel_redmi_mt6885'
         
       KERNEL_SOURCE_BRANCH:
         description: 'Branch'
         required: true
-        default: 'V12'
+        default: 'android-4.14-r-stable'
         
       KERNEL_DEFCONFIG:
         description: 'Defconfig'
         required: true
-        default: 'vendor/kona-perf_defconfig'
+        default: 'vendor/atom_user_defconfig'
 
       CLANG_v:
         description: 'Clang version  14  16  17'
@@ -37,7 +37,7 @@ on:
       ksu_path_or_KPROBES:
         description: '[0，1，2，3,  4]->[path-su,kprobes-su,only-path-su,only-kprobes-su,no-su]'
         required: true
-        default: '1'
+        default: '4'
 
 jobs:
   build:
@@ -74,8 +74,8 @@ jobs:
         export ARCH=arm64
         export SUBARCH=arm64
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 )"
-        export KBUILD_BUILD_HOST=zhlhlf-linux
-        export KBUILD_BUILD_USER=zhlhlf  
+        export KBUILD_BUILD_HOST=MouRen123456-PC
+        export KBUILD_BUILD_USER=MouRen123456  
         
         cat > AnyKernel3.sh <<end
         rm -rf AnyKernel3
@@ -131,8 +131,9 @@ jobs:
         make O=out -j$(nproc --all) CC="ccache clang" CXX="ccache clang++" ARCH=arm64 CROSS_COMPILE=$CLANG_PATH/bin/aarch64-linux-gnu- CROSS_COMPILE_ARM32=$CLANG_PATH/bin/arm-linux-gnueabi- LD=ld.lld 2>&1 | tee kernel.log               
         echo "----------------------"
         sh AnyKernel3.sh  ${{ github.event.inputs.zip_name }} "ksu"
-        fi
-
-    - name: 上传到onedrive
-      run: |
-         wget -q https://raw.githubusercontent.com/zhlhlf/text/main/onedrive_mount.sh && sh onedrive_mount.sh ${{ secrets.RCK }} 临时存放文件
+        fi            
+    - name: Upload WSA
+      uses: actions/upload-artifact@v3
+      with:
+        path: "*"
+          
