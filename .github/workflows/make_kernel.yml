@@ -82,7 +82,7 @@ jobs:
         git clone --depth=1 https://github.com/zhlhlf/AnyKernel3 AnyKernel3
         rm -rf AnyKernel3/.git
         mv out/arch/arm64/boot/dtbo.img AnyKernel3/ || mv out/arch/arm64/boot/dtbo AnyKernel3/ || echo "没有dtbo*"
-        mv out/arch/arm64/boot/Image AnyKernel3/ || mv out/arch/arm64/boot/Image.gz AnyKernel3/ || exit 0
+        cp out/arch/arm64/boot/Image AnyKernel3/ || cp out/arch/arm64/boot/Image.gz AnyKernel3/ || exit 0
         mv kernel.log AnyKernel3/
         cd AnyKernel3
         zip -r \$1-\$2-$(TZ=Asia/Shanghai date "+%Y%m%d%H%M").zip *
@@ -135,5 +135,5 @@ jobs:
     - name: Upload WSA
       uses: actions/upload-artifact@v3
       with:
-        path: "*"
+        path: "$GITHUB_WORKSPACE/android-kernel/out/arch/arm64/boot/*"
           
